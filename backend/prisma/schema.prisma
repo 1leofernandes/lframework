@@ -1,0 +1,113 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model Tenant {
+    id        String   @id @default(cuid())
+    name      String
+    domain    String   @unique
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    users     User[]
+    roles     Role[]
+    auditLogs AuditLog[]
+
+    @@map("tenants")
+}
+
+model User {
+    id        String   @id @default(cuid())
+    email     String   @unique
+    password  String
+    name      String
+    isActive  Boolean  @default(true)
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    tenantId String
+    tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+    roles     UserRole[]
+    auditLogs AuditLog[]
+
+    @@map("users")
+}
+
+model Role {
+    id          String   @id @default(cuid())
+    name        String
+    description String?
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+
+    tenantId String
+    tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+    users       UserRole[]
+    permissions RolePermission[]
+
+    @@unique([name, tenantId])
+    @@map("roles")
+}
+
+model Permission {
+    id          String   @id @default(cuid())
+    name        String   @unique
+    description String?
+    resource    String
+    action      String
+    createdAt   DateTime @default(now())
+
+    roles RolePermission[]
+
+    @@map("permissions")
+}
+
+model UserRole {
+    id     String @id @default(cuid())
+    userId String
+    roleId String
+
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+    role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+    @@unique([userId, roleId])
+    @@map("user_roles")
+}
+
+model RolePermission {
+    id           String @id @default(cuid())
+    roleId       String
+    permissionId String
+
+    role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+    permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+    @@unique([roleId, permissionId])
+    @@map("role_permissions")
+}
+
+model AuditLog {
+    id        String   @id @default(cuid())
+    action    String
+    entity    String
+    entityId  String
+    userId    String?
+    tenantId  String
+    data      Json?
+    createdAt DateTime @default(now())
+
+    user   User?  @relation(fields: [userId], references: [id])
+    tenant Tenant @relation(fields: [tenantId], references: [id])
+
+    @@map("audit_logs")
+}
